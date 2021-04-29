@@ -1,6 +1,5 @@
 import os
 import json
-from psycopg2 import sql
 from socketmap.postgres import PostgresServer, PostgresClient
 
 
@@ -15,6 +14,8 @@ FIELD_NAME = 'row'
 
 
 def create_table(client, table):
+    r'''Use PostgreSQL `client` to submit a SQL query that creates a table with
+    name `table`'''
     client.execute(SQL_CREATE_TABLE.format(
         table=table,
         datatypes=f'{FIELD_NAME} json not null',
@@ -23,6 +24,8 @@ def create_table(client, table):
 
 
 def export_table(client, table, path):
+    r'''Use PostgreSQL `client` to export table with name `table` to specified
+    local `path`'''
     client.execute(SQL_COPY.format(
         table=table,
         path=path,
@@ -34,6 +37,9 @@ def export_table(client, table, path):
 
 
 def create_foreach_wrapper(cluster, user, database, table, func):
+    r'''Returns a function compatible with
+    `pyspark.sql.DataFrame.foreachPartition` which applies
+    `func`: pyspark.sql.Row -> dict to each row'''
     def wrapper(iterator):
         with PostgresClient(cluster, user, database) as client:
             for record in iterator:
@@ -47,23 +53,22 @@ def create_foreach_wrapper(cluster, user, database, table, func):
 
 
 def parse_json(row):
+    r'''Simple helper function to parse JSON blobs in intermediate CSV file'''
     string = row[FIELD_NAME].strip('"').replace('""', '"')
     return json.loads(string)
 
 
 def socketmap(spark, df, func, cluster=CLUSTER, user=USER, database=DATABASE):
+    r'''Returns a `pyspark.sql.DataFrame` that is the result of applying
+    `func`: pyspark.sql.Row -> dict to each record of `pyspark.sql.DataFrame`
+    `df`'''
     table = 'socket2me'
     path = os.path.join('/tmp', table)
-    with PostgresServer(cluster, user, database) as server:
+    with PostgresServer(cluster, user, database):
         with PostgresClient(cluster, user, database) as client:
             create_table(client, table)
-            wrapper = create_foreach_wrapper(
-                cluster,
-                user,
-                database,
-                table,
-                func,
-            )
+            wrapper = create_foreach_wrapper(cluster, user, database,
+                                             table, func)
             df.foreachPartition(wrapper)
             export_table(client, table, path)
     df = spark.read.option('header', True).csv(path)
