@@ -15,4 +15,4 @@ sudo runuser -l postgres -c "source $HOME/paths && $SPARK_HOME/bin/spark-submit 
     --driver-cores $DRIVER_CORES \
     --driver-memory $DRIVER_MEMORY \
     --executor-memory $EXECUTOR_MEMORY \
-    ${HOME}/socketmap/tests/python/test_socketmap.py"
+    ${HOME}/socketmap/scripts/python/parse_sentences.py"
