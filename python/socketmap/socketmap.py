@@ -1,5 +1,6 @@
 import os
 import json
+from uuid import uuid4
 from socketmap.postgres import PostgresServer, PostgresClient
 
 
@@ -7,7 +8,7 @@ CLUSTER = 'main'
 USER = 'postgres'
 DATABASE = 'postgres'
 SQL_CREATE_TABLE = 'CREATE TABLE "{table}" ({datatypes});'
-SQL_INSERT_INTO = 'INSERT INTO "{table}" ({fields}) VALUES ({values});'
+SQL_INSERT_INTO = 'INSERT INTO "{table}" ({fields}) VALUES {values};'
 SQL_COPY = '''COPY "{table}" to '{path}' DELIMITER ',' CSV HEADER;'''
 SQL_DROP_TABLE = 'DROP TABLE "{table}";'
 FIELD_NAME = 'row'
@@ -36,19 +37,37 @@ def export_table(client, table, path):
     client.commit()
 
 
+def escape_quotes(obj):
+    r'''Escape single quotes for compatibility with SQL'''
+    obj = json.loads(json.dumps(obj))
+    if isinstance(obj, list):
+        return [escape_quotes(x) for x in obj]
+    if isinstance(obj, dict):
+        return {escape_quotes(k): escape_quotes(v) for k, v in obj.items()}
+    if isinstance(obj, str):
+        return obj.replace("'", "''")
+    return obj
+
+
 def create_foreach_wrapper(cluster, user, database, table, func):
     r'''Returns a function compatible with
     `pyspark.sql.DataFrame.foreachPartition` which applies
     `func`: pyspark.sql.Row -> dict to each row'''
     def wrapper(iterator):
         with PostgresClient(cluster, user, database) as client:
+            obj_strings = []
             for record in iterator:
-                obj_string = json.dumps(func(record))
-                client.execute(SQL_INSERT_INTO.format(
-                    table=table,
-                    fields=FIELD_NAME,
-                    values=f"'{obj_string}'",
-                ))
+                obj_string = json.dumps(escape_quotes(func(record)))
+                obj_strings.append(obj_string)
+            values = ', '.join(map(
+                lambda obj_string: ''.join(("('", obj_string, "')")),
+                obj_strings,
+            ))
+            client.execute(SQL_INSERT_INTO.format(
+                table=table,
+                fields=FIELD_NAME,
+                values=values,
+            ))
     return wrapper
 
 
@@ -62,9 +81,10 @@ def socketmap(spark, df, func, cluster=CLUSTER, user=USER, database=DATABASE):
     r'''Returns a `pyspark.sql.DataFrame` that is the result of applying
     `func`: pyspark.sql.Row -> dict to each record of `pyspark.sql.DataFrame`
     `df`'''
-    table = 'socket2me'
+    table = f't{uuid4().hex}'
     path = os.path.join('/tmp', table)
-    with PostgresServer(cluster, user, database):
+    exit_routine = SQL_DROP_TABLE.format(table=table)
+    with PostgresServer(cluster, user, database, exit_routine):
         with PostgresClient(cluster, user, database) as client:
             create_table(client, table)
             wrapper = create_foreach_wrapper(cluster, user, database,

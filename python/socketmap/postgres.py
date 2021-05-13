@@ -19,12 +19,18 @@ class PostgresServer:
 
     def stop(self):
         r'''Stop the PostgreSQL server'''
+        if self.exit_routine is not None:
+            client = PostgresClient(self.cluster, self.user, self.database)
+            client.execute(self.exit_routine)
+            client.commit()
+            client.stop()
         self.ctl('stop')
 
-    def __init__(self, cluster, user, database):
+    def __init__(self, cluster, user, database, exit_routine=None):
         self.cluster = cluster
         self.user = user
         self.database = database
+        self.exit_routine = exit_routine
         self.start()
 
     def __enter__(self):
@@ -66,7 +72,6 @@ class PostgresClient:
     def execute(self, sql_statement):
         r'''Submit a SQL command'''
         self.cursor.execute(sql_statement)
-
 
     def __enter__(self):
         return self
