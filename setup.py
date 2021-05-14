@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='socketmap',
-    desription='High-level PySpark tool for applying server-dependent functions',
+    description='High-level PySpark tool for applying server-dependent functions',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     version='0.1.0',
