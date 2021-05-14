@@ -63,11 +63,12 @@ def create_foreach_wrapper(cluster, user, database, table, func):
                 lambda obj_string: ''.join(("('", obj_string, "')")),
                 obj_strings,
             ))
-            client.execute(SQL_INSERT_INTO.format(
-                table=table,
-                fields=FIELD_NAME,
-                values=values,
-            ))
+            if values:
+                client.execute(SQL_INSERT_INTO.format(
+                    table=table,
+                    fields=FIELD_NAME,
+                    values=values,
+                ))
     return wrapper
 
 
@@ -83,8 +84,7 @@ def socketmap(spark, df, func, cluster=CLUSTER, user=USER, database=DATABASE):
     `df`'''
     table = f't{uuid4().hex}'
     path = os.path.join('/tmp', table)
-    exit_routine = SQL_DROP_TABLE.format(table=table)
-    with PostgresServer(cluster, user, database, exit_routine):
+    with PostgresServer(cluster, user, database):
         with PostgresClient(cluster, user, database) as client:
             create_table(client, table)
             wrapper = create_foreach_wrapper(cluster, user, database,

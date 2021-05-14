@@ -19,18 +19,12 @@ class PostgresServer:
 
     def stop(self):
         r'''Stop the PostgreSQL server'''
-        if self.exit_routine is not None:
-            client = PostgresClient(self.cluster, self.user, self.database)
-            client.execute(self.exit_routine)
-            client.commit()
-            client.stop()
         self.ctl('stop')
 
-    def __init__(self, cluster, user, database, exit_routine=None):
+    def __init__(self, cluster, user, database):
         self.cluster = cluster
         self.user = user
         self.database = database
-        self.exit_routine = exit_routine
         self.start()
 
     def __enter__(self):
