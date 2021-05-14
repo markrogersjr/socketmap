@@ -52,16 +52,15 @@ def escape_quotes(obj):
 def create_foreach_wrapper(cluster, user, database, table, func):
     r'''Returns a function compatible with
     `pyspark.sql.DataFrame.foreachPartition` which applies
-    `func`: pyspark.sql.Row -> dict to each row'''
+    `func`: `iter[pyspark.sql.Row]` -> `list[dict]`'''
     def wrapper(iterator):
         with PostgresClient(cluster, user, database) as client:
-            obj_strings = []
-            for record in iterator:
-                obj_string = json.dumps(escape_quotes(func(record)))
-                obj_strings.append(obj_string)
+            outputs = func(iterator)
+            for i, output in enumerate(outputs):
+                outputs[i] = json.dumps(escape_quotes(output))
             values = ', '.join(map(
-                lambda obj_string: ''.join(("('", obj_string, "')")),
-                obj_strings,
+                lambda output: ''.join(("('", output, "')")),
+                outputs,
             ))
             if values:
                 client.execute(SQL_INSERT_INTO.format(
@@ -80,8 +79,8 @@ def parse_json(row):
 
 def socketmap(spark, df, func, cluster=CLUSTER, user=USER, database=DATABASE):
     r'''Returns a `pyspark.sql.DataFrame` that is the result of applying
-    `func`: pyspark.sql.Row -> dict to each record of `pyspark.sql.DataFrame`
-    `df`'''
+    `func`: `iter[pyspark.sql.Row]` -> `list[dict]` to each record of
+    `pyspark.sql.DataFrame` `df`'''
     table = f't{uuid4().hex}'
     path = os.path.join('/tmp', table)
     with PostgresServer(cluster, user, database):

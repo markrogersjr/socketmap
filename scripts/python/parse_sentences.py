@@ -3,13 +3,18 @@ from pycorenlp import StanfordCoreNLP
 from socketmap import socketmap
 
 
-def parse_sentence(sentence):
+def parse_sentences(input_rows_iterator):
     nlp = StanfordCoreNLP('http://localhost:9000')
-    response = nlp.annotate(
-        sentence,
-        properties={'annotators': 'parse', 'outputFormat': 'json'},
-    )
-    return response['sentences'][0]['parse']
+    outputs = []
+    for row in input_rows_iterator:
+        sentence = row['sentence']
+        response = nlp.annotate(
+            sentence,
+            properties={'annotators': 'parse', 'outputFormat': 'json'},
+        )
+        output = {'tree': response['sentences'][0]['parse']}
+        outputs.append(output)
+    return outputs
 
 
 spark = SparkSession.builder.getOrCreate()
@@ -21,7 +26,6 @@ sentences = [
 print('INPUT DATAFRAME')
 input_dataframe = spark.createDataFrame(sentences, ['sentence'])
 input_dataframe.show()
-wrapper = lambda row: {'tree': parse_sentence(row['sentence'])}
-output_dataframe = socketmap(spark, input_dataframe, wrapper)
+output_dataframe = socketmap(spark, input_dataframe, parse_sentences)
 print('OUTPUT DATAFRAME')
 output_dataframe.show()

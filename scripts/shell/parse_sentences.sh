@@ -1,12 +1,11 @@
 DRIVER_CORES=32
-APP_NAME=style
+APP_NAME=example
 DRIVER_MEMORY=160g
 EXECUTOR_MEMORY=3g
 
 # run corenlp server
 CURDIR=$PWD
 cd $STANFORD_NLP_PATH
-export CLASSPATH="`find . -name '*.jar'`"
 java -mx4g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer -port 9000 -timeout 15000 &
 cd $CURDIR
 

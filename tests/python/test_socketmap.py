@@ -1,16 +1,29 @@
 import unittest
 from pyspark.sql import SparkSession
-from style.socketmap import socketmap
+from socketmap import socketmap
 from pycorenlp import StanfordCoreNLP
 
 
-def parse_sentence(sentence):
+def concat(input_rows_iterator):
+    outputs = []
+    for row in input_rows_iterator:
+        output = {'c': row['c'] + 'd'}
+        outputs.append(output)
+    return outputs
+
+
+def parse_sentences(input_rows_iterator):
     nlp = StanfordCoreNLP('http://localhost:9000')
-    response = nlp.annotate(
-        sentence,
-        properties={'annotators': 'parse', 'outputFormat': 'json'},
-    )
-    return response['sentences'][0]['parse']
+    outputs = []
+    for row in input_rows_iterator:
+        sentence = row['sentence']
+        response = nlp.annotate(
+            sentence,
+            properties={'annotators': 'parse', 'outputFormat': 'json'},
+        )
+        output = {'tree': response['sentences'][0]['parse']}
+        outputs.append(output)
+    return outputs
 
 
 def compare_unordered_dataframes(left, right):
@@ -26,7 +39,7 @@ class TestSocketmap(unittest.TestCase):
     def test_concat(self):
         df = self.spark.createDataFrame([['a'], ['b']], ['c'])
         tru = self.spark.createDataFrame([['ad'], ['bd']], ['c'])
-        est = socketmap(self.spark, df, lambda x: {'c': x['c'] + 'd'})
+        est = socketmap(self.spark, df, concat)
         self.assertEqual(compare_unordered_dataframes(tru, est), True)
 
     def test_corenlp(self):
@@ -36,19 +49,18 @@ class TestSocketmap(unittest.TestCase):
             ['There is a wisdom that is a woe.'],
         ]
         df = self.spark.createDataFrame(sentences, ['sentence'])
+        print('\n\n\nINSPECT INPUT DF')
+        df.show()
+        dicts = [{'sentence': sentence[0]} for sentence in sentences]
         tru = self.spark.createDataFrame(
-                map(lambda a: [parse_sentence(a[0])], sentences),
+            [[output['tree']] for output in parse_sentences(dicts)],
             ['tree'],
         )
-        est = socketmap(
-            self.spark,
-            df,
-            lambda row: {'tree': parse_sentence(row['sentence'])},
-        )
-        print('\n\n\nINSPECT EST')
-        est.show()
         print('\n\n\nINSPECT TRU')
         tru.show()
+        est = socketmap(self.spark, df, parse_sentences)
+        print('\n\n\nINSPECT EST')
+        est.show()
         self.assertEqual(compare_unordered_dataframes(tru, est), True)
 
 
