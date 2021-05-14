@@ -91,6 +91,6 @@ def socketmap(spark, df, func, cluster=CLUSTER, user=USER, database=DATABASE):
                                              table, func)
             df.foreachPartition(wrapper)
             export_table(client, table, path)
-    df = spark.read.option('header', True).csv(path)
-    df = spark.createDataFrame(df.rdd.map(lambda row: parse_json(row)))
+    df = spark.read.option('header', True).csv(path, sep='{]')
+    df = spark.createDataFrame(df.rdd.map(parse_json))
     return df
