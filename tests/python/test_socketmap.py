@@ -49,19 +49,22 @@ class TestSocketmap(unittest.TestCase):
             ['There is a wisdom that is a woe.'],
         ]
         df = self.spark.createDataFrame(sentences, ['sentence'])
-        print('\n\n\nINSPECT INPUT DF')
-        df.show()
         dicts = [{'sentence': sentence[0]} for sentence in sentences]
         tru = self.spark.createDataFrame(
             [[output['tree']] for output in parse_sentences(dicts)],
             ['tree'],
         )
-        print('\n\n\nINSPECT TRU')
-        tru.show()
         est = socketmap(self.spark, df, parse_sentences)
-        print('\n\n\nINSPECT EST')
-        est.show()
         self.assertEqual(compare_unordered_dataframes(tru, est), True)
+
+    def test_empty(self):
+        column = 'test'
+        schema = self.spark.createDataFrame([[column]], [column]).schema
+        df = self.spark.createDataFrame([], schema)
+        identity = lambda row: {column: row[column]}
+        tru = None
+        est = socketmap(self.spark, df, identity)
+        self.assertEqual(tru, est)
 
 
 if __name__ == '__main__':

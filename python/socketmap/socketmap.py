@@ -81,6 +81,7 @@ def socketmap(spark, df, func, cluster=CLUSTER, user=USER, database=DATABASE):
     r'''Returns a `pyspark.sql.DataFrame` that is the result of applying
     `func`: `iter[pyspark.sql.Row]` -> `list[dict]` to each record of
     `pyspark.sql.DataFrame` `df`'''
+    schema = df.schema
     table = f't{uuid4().hex}'
     path = os.path.join('/tmp', table)
     with PostgresServer(cluster, user, database):
@@ -91,5 +92,7 @@ def socketmap(spark, df, func, cluster=CLUSTER, user=USER, database=DATABASE):
             df.foreachPartition(wrapper)
             export_table(client, table, path)
     df = spark.read.option('header', True).csv(path, sep='{]')
+    if df.rdd.isEmpty():
+        return None
     df = spark.createDataFrame(df.rdd.map(parse_json))
     return df
