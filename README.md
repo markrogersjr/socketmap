@@ -5,7 +5,7 @@ High-level PySpark tool for applying server-dependent functions
 
 #### PostgreSQL
 ```bash
-sudo apt install postegresql
+sudo apt install postgresql
 ```
 
 #### PySpark
