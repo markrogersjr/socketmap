@@ -77,14 +77,14 @@ def parse_json(row):
     return json.loads(string)
 
 
-def socketmap(spark, df, func, cluster=CLUSTER, user=USER, database=DATABASE):
+def socketmap(spark, df, func, cluster=CLUSTER, user=USER, database=DATABASE, postgresql_version=12):
     r'''Returns a `pyspark.sql.DataFrame` that is the result of applying
     `func`: `iter[pyspark.sql.Row]` -> `list[dict]` to each record of
     `pyspark.sql.DataFrame` `df`'''
     schema = df.schema
     table = f't{uuid4().hex}'
     path = os.path.join('/tmp', table)
-    with PostgresServer(cluster, user, database):
+    with PostgresServer(cluster, user, database, postgresql_version):
         with PostgresClient(cluster, user, database) as client:
             create_table(client, table)
             wrapper = create_foreach_wrapper(cluster, user, database,

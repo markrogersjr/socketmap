@@ -3,14 +3,14 @@ from traceback import print_exception
 import psycopg2
 
 
-CTL_CLUSTER = 'pg_ctlcluster 13 {cluster} {action}'
+CTL_CLUSTER = 'pg_ctlcluster {version} {cluster} {action}'
 
 
 class PostgresServer:
 
     def ctl(self, action):
         r'''base method for controlling PostgreSQL clusters'''
-        cmd = CTL_CLUSTER.format(cluster=self.cluster, action=action)
+        cmd = CTL_CLUSTER.format(version=self.version, cluster=self.cluster, action=action)
         call(cmd, shell=True)
 
     def start(self):
@@ -21,10 +21,11 @@ class PostgresServer:
         r'''Stop the PostgreSQL server'''
         self.ctl('stop')
 
-    def __init__(self, cluster, user, database):
+    def __init__(self, cluster, user, database, version):
         self.cluster = cluster
         self.user = user
         self.database = database
+        self.version = version
         self.start()
 
     def __enter__(self):
